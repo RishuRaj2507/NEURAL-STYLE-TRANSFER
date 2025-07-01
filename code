@@ -1,0 +1,97 @@
+import torch
+import torchvision.transforms as transforms
+from PIL import Image
+import matplotlib.pyplot as plt
+from torchvision.models import vgg19
+from torchvision.utils import save_image
+import copy
+import os
+
+# Load and transform image
+def load_image(img_path, max_size=400):
+    # Check if the image file exists, if not, create a placeholder
+    if not os.path.exists(img_path):
+        print(f"Image not found: {img_path}. Creating a placeholder image.")
+        # Create a simple placeholder image (e.g., a white square)
+        placeholder_image = Image.new('RGB', (max_size, max_size), color = 'white')
+        placeholder_image.save(img_path)
+
+    image = Image.open(img_path).convert('RGB')
+    size = max(image.size)
+    transform = transforms.Compose([
+        transforms.Resize((max_size, int(max_size * image.size[0] / image.size[1]))),
+        transforms.ToTensor()
+    ])
+    image = transform(image)[:3, :, :].unsqueeze(0)
+    return image.to(torch.float)
+
+# Load content and style image
+import torch
+
+# Choose the right device based on availability
+device = (
+    torch.device("mps") if torch.backends.mps.is_available() else  # Apple Silicon GPU
+    torch.device("cuda") if torch.cuda.is_available() else         # NVIDIA CUDA
+    torch.device("cpu")                                            # Fallback
+)
+
+# Load images and move to the selected device
+content = load_image("content.jpg").to(device)
+style = load_image("style.jpg").to(device)
+
+
+# Use VGG19
+# Move model to the same device as images
+model = vgg19(pretrained=True).features.to(device).eval()
+
+# Define loss layers and weights
+content_layers = ['21']
+style_layers = ['0', '5', '10', '19', '28']
+style_weights = [1.0, 0.8, 0.5, 0.3, 0.1]
+
+# Extract features
+def get_features(image, model, layers):
+    features = {}
+    x = image
+    for name, layer in model._modules.items():
+        x = layer(x)
+        if name in layers:
+            features[name] = x
+    return features
+
+# Gram Matrix for style
+def gram_matrix(tensor):
+    b, c, h, w = tensor.size()
+    tensor = tensor.view(c, h * w)
+    return torch.mm(tensor, tensor.t())
+
+# Optimize image
+target = content.clone() + torch.randn_like(content) * 0.01
+target.requires_grad_(True)
+
+
+optimizer = torch.optim.Adam([target], lr=0.003)
+style_features = get_features(style, model, style_layers)
+content_features = get_features(content, model, content_layers)
+
+for i in range(300):
+    target_features = get_features(target, model, content_layers + style_layers)
+
+    content_loss = torch.mean((target_features['21'] - content_features['21']) ** 2)
+    style_loss = 0
+    for j, layer in enumerate(style_layers):
+        target_gram = gram_matrix(target_features[layer])
+        style_gram = gram_matrix(style_features[layer])
+        style_loss += style_weights[j] * torch.mean((target_gram - style_gram) ** 2)
+
+    total_loss = content_loss + 1e6 * style_loss
+
+    optimizer.zero_grad()
+    total_loss.backward(retain_graph=True)
+    optimizer.step()
+
+    if i % 50 == 0:
+        print(f"Iteration {i}, Content Loss: {content_loss.item()}, Style Loss: {style_loss.item()}, Total Loss: {total_loss.item()}")
+
+# Save output
+save_image(target, 'output.jpg')
