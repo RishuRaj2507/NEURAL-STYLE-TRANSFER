@@ -1,4 +1,4 @@
-# tezt-summarizer-project
+# Neural Style Transfer
 
 *Company* - *CODTECH IT SOLUTIONS*
 
