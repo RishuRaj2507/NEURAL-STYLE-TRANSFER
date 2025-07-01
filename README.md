@@ -1,3 +1,17 @@
+# tezt-summarizer-project
+
+*Company* - *CODTECH IT SOLUTIONS*
+
+*NAME* - *RISHU RAJ*
+
+*INTERN ID* - *CT04DF2641*
+
+*DOMAIN* - *ARTIFICIAL INTELLIGENCE*
+
+*DURATION* - *4 WEEKS*
+
+*MENTOR* - *NEELA SANTHOSH KUMAR*
+
 ## 🎨 Neural Style Transfer using PyTorch and VGG19
 
 This project implements **Neural Style Transfer** in Python using PyTorch and the pre-trained VGG19 model. The goal is to generate a new image that combines the **content of one image** with the **style of another**, creating visually compelling artistic results.
